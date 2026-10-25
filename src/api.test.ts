@@ -32,7 +32,7 @@ describe("API client", () => {
     });
     const firstUrl = fetcher.mock.calls.at(0)?.at(0);
     expect(firstUrl).toBe(
-      "/securities?offset=25&limit=2&sort_by=country&sort_order=desc&instrument_type=stock&country_code=DE",
+      "/api/v1/pyfolio/securities?offset=25&limit=2&sort_by=country&sort_order=desc&instrument_type=stock&country_code=DE",
     );
     expect(page.items).toHaveLength(2);
     expect(page.hasNext).toBe(true);
@@ -52,7 +52,7 @@ describe("API client", () => {
       "DELETE",
     ]);
     const secondUrl = fetcher.mock.calls.at(1)?.at(0);
-    expect(secondUrl).toBe("/countries/DE");
+    expect(secondUrl).toBe("/api/v1/pyfolio/countries/DE");
   });
   it("maps backend field validation into field errors", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
