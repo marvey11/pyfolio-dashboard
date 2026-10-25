@@ -92,6 +92,7 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Omit VITE_API_BASE_URL to use same-origin API requests.
           build-args: |
             VITE_BASE_PATH=/pyfolio/
           secrets: |

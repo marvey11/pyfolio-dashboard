@@ -1,5 +1,6 @@
 const apiBaseUrl: unknown = import.meta.env.VITE_API_BASE_URL;
-const API_BASE_URL = typeof apiBaseUrl === "string" ? apiBaseUrl : "";
+const API_BASE_URL =
+  typeof apiBaseUrl === "string" ? apiBaseUrl.trim().replace(/\/+$/, "") : "";
 
 export const INSTRUMENT_TYPES = [
   "stock",
