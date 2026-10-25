@@ -18,3 +18,14 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+    open-pull-requests-limit: 10
+    ignore:
+      - dependency-name: "typescript"
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

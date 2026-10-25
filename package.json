@@ -12,9 +12,12 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,md}\"",
     "test": "vitest",
     "test:run": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@marvey11/codescape-react-utils": "^0.1.0",
+    "@marvey11/codescape-ui": "^0.1.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
@@ -29,6 +32,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
