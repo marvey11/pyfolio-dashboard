@@ -1,6 +1,7 @@
 const apiBaseUrl: unknown = import.meta.env.VITE_API_BASE_URL;
-const API_BASE_URL =
+const configuredApiBase =
   typeof apiBaseUrl === "string" ? apiBaseUrl.trim().replace(/\/+$/, "") : "";
+const API_BASE_URL = configuredApiBase || "/api/v1/pyfolio";
 
 export const INSTRUMENT_TYPES = [
   "stock",

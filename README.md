@@ -16,15 +16,15 @@ Use Node.js 24 and npm. The Codescape packages are hosted on GitHub Packages. Pr
 npm ci
 ```
 
-By default, API requests use the same origin as the dashboard. Leave `VITE_API_BASE_URL` unset for this behaviour. To use a separate API host or an API path prefix, set the optional variable in a local `.env` file:
+By default, API requests use the same origin as the dashboard, with the public API base `/api/v1/pyfolio`. Leave `VITE_API_BASE_URL` unset for this behaviour. To use a different API host or prefix, set the optional variable in a local `.env` file:
 
 ```dotenv
-VITE_API_BASE_URL=http://localhost:8000
+VITE_API_BASE_URL=http://localhost:8000/api/v1
 ```
 
 Start local development with `npm run dev`. The development server runs at the configured frontend base path; `VITE_BASE_PATH=/` may be useful for a root-hosted local preview.
 
-The same-origin default works in local development only when the dashboard is reached through a proxy that also routes the API paths. Vite's development server does not proxy API requests. A direct API origin override requires that origin to allow the dashboard through CORS; the current backend does not enable CORS by default.
+The same-origin default works in local development only when the dashboard is reached through a proxy that routes `/api/v1/pyfolio/*` to the backend API. Vite's development server does not proxy API requests. A direct API origin override requires that origin to allow the dashboard through CORS; the current backend does not enable CORS by default. When bypassing the gateway and calling the API directly, use its `/api/v1` base path.
 
 ## Checks
 
@@ -49,8 +49,8 @@ docker build \
   -t pyfolio-dashboard .
 ```
 
-`VITE_BASE_PATH` controls asset URLs and the SPA mount path; it does not configure API proxying. `VITE_API_BASE_URL` is optional at build time: when omitted or empty, the built app makes requests to the current browser origin. It can be passed as a Docker build argument when a separate API host or path prefix is needed, for example `--build-arg VITE_API_BASE_URL=/api`. Nginx inside the container falls back to `index.html` for nested routes.
+`VITE_BASE_PATH` controls asset URLs and the SPA mount path; it does not configure API proxying. `VITE_API_BASE_URL` is optional at build time: when omitted or empty, the built app calls the same origin at `/api/v1/pyfolio`. It can be passed as a Docker build argument when a different API host or path prefix is needed, for example `--build-arg VITE_API_BASE_URL=https://example.com/api/v1`. Nginx inside the container falls back to `index.html` for nested dashboard routes.
 
-The gateway example in the implementation brief strips `/pyfolio/` before forwarding to this container. The built assets therefore need to be served at the container root, which this image does, while the emitted asset URLs retain `/pyfolio/`. Configure the gateway to serve or rewrite those prefixed asset requests to the container root as required by its proxy behaviour.
+The dashboard is mounted under `/pyfolio/`; the gateway forwards those page and asset requests to this container, which serves the built files at its root. API requests use the separate public prefix `/api/v1/pyfolio` and must be rewritten by the gateway to `/api/v1` before reaching the backend. The gateway therefore handles two distinct public prefixes: `/pyfolio/` for dashboard pages/assets and `/api/v1/pyfolio/` for API resources. The SPA routes themselves remain under the dashboard mount and are served through the Nginx fallback.
 
-With the variable unset, browser requests go to `/securities` and `/countries` on the dashboard's origin. The gateway must route those API paths to the backend and `/pyfolio/` to the frontend. If the gateway exposes the API below a prefix such as `/api/`, set `VITE_API_BASE_URL=/api`; the gateway must strip that prefix before forwarding because backend routes are rooted at `/securities` and `/countries`. An absolute API URL can also be supplied when the API is hosted separately, but that origin must allow the dashboard through CORS. No gateway configuration is included here. CI and Docker builds leave `VITE_API_BASE_URL` unset by default, so they use same-origin requests; pass a build-time override only when deployment requires a different API base.
+With `VITE_API_BASE_URL` unset, API requests go to `/api/v1/pyfolio/securities` and `/api/v1/pyfolio/countries` on the dashboard's origin. The gateway rewrites that public prefix to the API's `/api/v1` prefix. Keep the dashboard mount at `/pyfolio/` so the SPA page and API resource URLs do not collide. An absolute API URL can also be supplied when the API is hosted separately, but that origin must allow the dashboard through CORS. No gateway configuration is included here. CI and Docker builds leave `VITE_API_BASE_URL` unset by default, so they use this same-origin API prefix; pass a build-time override only when deployment requires a different API base.

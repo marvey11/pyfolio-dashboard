@@ -91,7 +91,7 @@ describe("Pyfolio screens", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create country" }));
     await waitFor(() => {
       expect(fetcher).toHaveBeenCalledWith(
-        "/countries",
+        "/api/v1/pyfolio/countries",
         expect.objectContaining({ method: "POST" }),
       );
     });
@@ -142,7 +142,7 @@ describe("resource forms and destructive actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create security" }));
     await waitFor(() => {
       expect(fetcher).toHaveBeenCalledWith(
-        "/securities",
+        "/api/v1/pyfolio/securities",
         expect.objectContaining({ method: "POST" }),
       );
     });
@@ -182,7 +182,7 @@ describe("resource forms and destructive actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => {
       expect(fetcher).toHaveBeenCalledWith(
-        "/countries/DE",
+        "/api/v1/pyfolio/countries/DE",
         expect.objectContaining({ method: "PATCH" }),
       );
     });
@@ -226,7 +226,7 @@ describe("resource forms and destructive actions", () => {
 
 describe("routing", () => {
   it("shows a useful fallback for an unknown nested route", () => {
-    window.history.replaceState({}, "", "/pyfolio/does-not-exist");
+    window.history.replaceState({}, "", "/does-not-exist");
     render(<App />);
     expect(
       screen.getByRole("heading", { name: "Page not found" }),
