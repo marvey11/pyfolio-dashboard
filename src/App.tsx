@@ -24,6 +24,7 @@ import {
   ApiError,
   INSTRUMENT_TYPES,
   type Country,
+  type PaginationMetadata,
   type Security,
   type SecurityInput,
   type SortOrder,
@@ -61,6 +62,10 @@ function validSort(value: unknown, allowed: string[], fallback: Sort): Sort {
     (direction === "asc" || direction === "desc")
     ? { column, direction }
     : fallback;
+}
+const PAGE_SIZES = [10, 25, 50] as const;
+function validPageSize(value: unknown, fallback = 25): number {
+  return PAGE_SIZES.find((pageSize) => pageSize === value) ?? fallback;
 }
 
 function Link({
@@ -265,34 +270,56 @@ function ErrorBox({ message, retry }: { message: string; retry: () => void }) {
   );
 }
 function Pagination({
-  offset,
-  limit,
-  hasNext,
-  totalOnPage,
-  change,
+  page,
+  pageSize,
+  totalItems,
+  totalPages,
+  hasPreviousPage,
+  hasNextPage,
+  onPageChange,
+  onPageSizeChange,
 }: {
-  offset: number;
-  limit: number;
-  hasNext: boolean;
-  totalOnPage: number;
-  change: (offset: number) => void;
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
 }) {
-  const page = Math.floor(offset / limit) + 1;
+  const firstItem = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
+  const lastItem = Math.min(page * pageSize, totalItems);
   return (
     <div className="pagination">
       <span>
-        Page {page} ·{" "}
-        {totalOnPage
-          ? `${String(offset + 1)}–${String(offset + totalOnPage)}`
-          : "No records"}
+        {totalItems === 0
+          ? "No results"
+          : `Page ${String(page)} of ${String(totalPages)} · ${String(firstItem)}–${String(lastItem)} of ${String(totalItems)}`}
       </span>
       <div>
+        <label className="pagination-size">
+          Rows per page
+          <select
+            aria-label="Rows per page"
+            value={pageSize}
+            onChange={(event) => {
+              onPageSizeChange(Number(event.target.value));
+            }}
+          >
+            {PAGE_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
         <Button
           variant="outline"
           size="sm"
-          disabled={offset === 0}
+          disabled={!hasPreviousPage}
           onClick={() => {
-            change(Math.max(0, offset - limit));
+            onPageChange(page - 1);
           }}
         >
           Previous
@@ -300,9 +327,9 @@ function Pagination({
         <Button
           variant="outline"
           size="sm"
-          disabled={!hasNext}
+          disabled={!hasNextPage}
           onClick={() => {
-            change(offset + limit);
+            onPageChange(page + 1);
           }}
         >
           Next
@@ -355,7 +382,12 @@ function SecurityList({
     ["isin", "wkn", "name", "instrument_type", "country"],
     { column: "isin", direction: "asc" },
   );
-  const [offset, setOffset] = useState(0);
+  const [storedPageSize, setStoredPageSize] = useLocalStorage<unknown>(
+    "pyfolio.securities.page-size",
+    25,
+  );
+  const pageSize = validPageSize(storedPageSize);
+  const [page, setPage] = useState(1);
   const [type, setType] = useState("");
   const [countryCode, setCountryCode] = useState("");
   const [refresh, setRefresh] = useState(0);
@@ -363,7 +395,14 @@ function SecurityList({
   const [countries, setCountries] = useState<Country[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [hasNext, setHasNext] = useState(false);
+  const [pagination, setPagination] = useState<PaginationMetadata>({
+    page: 1,
+    pageSize,
+    totalItems: 0,
+    totalPages: 0,
+    hasPreviousPage: false,
+    hasNextPage: false,
+  });
   const reload = useCallback(() => {
     setLoading(true);
     setError("");
@@ -371,26 +410,34 @@ function SecurityList({
   }, []);
   useEffect(() => {
     let active = true;
+    let redirecting = false;
     Promise.all([
       api.securities({
-        offset,
-        limit: 25,
+        page,
+        pageSize,
         sort_by: sort.column,
         sort_order: sort.direction,
         ...(type ? { instrument_type: type } : {}),
         ...(countryCode ? { country_code: countryCode } : {}),
       }),
       api.countries({
-        offset: 0,
-        limit: 500,
+        page: 1,
+        pageSize: 500,
         sort_by: "name",
         sort_order: "asc",
       }),
     ])
       .then(([page, countryPage]) => {
         if (active) {
+          if (page.pagination.page > Math.max(page.pagination.totalPages, 1)) {
+            redirecting = true;
+            setLoading(true);
+            setRows([]);
+            setPage(Math.max(page.pagination.totalPages, 1));
+            return;
+          }
           setRows(page.items);
-          setHasNext(page.hasNext);
+          setPagination(page.pagination);
           setCountries(countryPage.items);
         }
       })
@@ -401,12 +448,12 @@ function SecurityList({
           );
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && !redirecting) setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [offset, sort.column, sort.direction, type, countryCode, refresh]);
+  }, [page, pageSize, sort.column, sort.direction, type, countryCode, refresh]);
   const updateSort = (column: string) => {
     setLoading(true);
     setError("");
@@ -415,7 +462,7 @@ function SecurityList({
       direction:
         sort.column === column && sort.direction === "asc" ? "desc" : "asc",
     });
-    setOffset(0);
+    setPage(1);
   };
   const remove = async (item: Security) => {
     if (!window.confirm(`Delete ${item.name}? This action cannot be undone.`))
@@ -423,8 +470,7 @@ function SecurityList({
     try {
       await api.deleteSecurity(item.id);
       notify("success", "Security deleted.");
-      if (rows.length === 1 && offset > 0) setOffset((value) => value - 25);
-      else reload();
+      reload();
     } catch (cause) {
       notify(
         "error",
@@ -453,8 +499,10 @@ function SecurityList({
             id="filter-type"
             value={type}
             onChange={(event) => {
+              setLoading(true);
+              setError("");
               setType(event.target.value);
-              setOffset(0);
+              setPage(1);
             }}
           >
             <option value="">All types</option>
@@ -472,8 +520,10 @@ function SecurityList({
             id="filter-country"
             value={countryCode}
             onChange={(event) => {
+              setLoading(true);
+              setError("");
               setCountryCode(event.target.value);
-              setOffset(0);
+              setPage(1);
             }}
           >
             <option value="">All countries</option>
@@ -492,47 +542,32 @@ function SecurityList({
           ) : error ? (
             <ErrorBox message={error} retry={reload} />
           ) : rows.length === 0 ? (
-            <>
-              <Empty
-                title={
-                  offset > 0
-                    ? "No securities on this page"
-                    : type || countryCode
-                      ? "No matching securities"
-                      : "No securities yet"
-                }
-                text={
-                  offset > 0
-                    ? "Go to the previous page to see securities."
-                    : type || countryCode
-                      ? "Try changing or clearing your filters."
-                      : "Add a security to start building your reference list."
-                }
-                action={
-                  !type && !countryCode && offset === 0 ? (
-                    <Link
-                      to="/securities/new"
-                      className="button-link primary-link"
-                    >
-                      Add your first security
-                    </Link>
-                  ) : undefined
-                }
-              />
-              {offset > 0 && (
-                <Pagination
-                  offset={offset}
-                  limit={25}
-                  hasNext={hasNext}
-                  totalOnPage={rows.length}
-                  change={(value) => {
-                    setLoading(true);
-                    setError("");
-                    setOffset(value);
-                  }}
-                />
-              )}
-            </>
+            <Empty
+              title={
+                page > 1
+                  ? "No securities on this page"
+                  : type || countryCode
+                    ? "No matching securities"
+                    : "No securities yet"
+              }
+              text={
+                page > 1
+                  ? "Go to the previous page to see securities."
+                  : type || countryCode
+                    ? "Try changing or clearing your filters."
+                    : "Add a security to start building your reference list."
+              }
+              action={
+                !type && !countryCode && page === 1 ? (
+                  <Link
+                    to="/securities/new"
+                    className="button-link primary-link"
+                  >
+                    Add your first security
+                  </Link>
+                ) : undefined
+              }
+            />
           ) : (
             <>
               <div className="table-wrap">
@@ -620,22 +655,32 @@ function SecurityList({
                   </tbody>
                 </table>
               </div>
-              <Pagination
-                offset={offset}
-                limit={25}
-                hasNext={hasNext}
-                totalOnPage={rows.length}
-                change={(value) => {
-                  setLoading(true);
-                  setError("");
-                  setOffset(value);
-                }}
-              />
             </>
+          )}
+          {!loading && !error && (
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              totalItems={pagination.totalItems}
+              totalPages={pagination.totalPages}
+              hasPreviousPage={pagination.hasPreviousPage}
+              hasNextPage={pagination.hasNextPage}
+              onPageChange={(value) => {
+                setLoading(true);
+                setError("");
+                setPage(value);
+              }}
+              onPageSizeChange={(value) => {
+                setStoredPageSize(value);
+                setLoading(true);
+                setError("");
+                setPage(1);
+              }}
+            />
           )}
         </CardContent>
       </Card>
-      <p className="table-note">Showing up to 25 securities per page</p>
+      <p className="table-note">Choose 10, 25 or 50 securities per page</p>
     </main>
   );
 }
@@ -653,12 +698,24 @@ function CountryList({
     column: "code",
     direction: "asc",
   });
-  const [offset, setOffset] = useState(0);
+  const [storedPageSize, setStoredPageSize] = useLocalStorage<unknown>(
+    "pyfolio.countries.page-size",
+    25,
+  );
+  const pageSize = validPageSize(storedPageSize);
+  const [page, setPage] = useState(1);
   const [refresh, setRefresh] = useState(0);
   const [rows, setRows] = useState<Country[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [hasNext, setHasNext] = useState(false);
+  const [pagination, setPagination] = useState<PaginationMetadata>({
+    page: 1,
+    pageSize,
+    totalItems: 0,
+    totalPages: 0,
+    hasPreviousPage: false,
+    hasNextPage: false,
+  });
   const reload = useCallback(() => {
     setLoading(true);
     setError("");
@@ -666,17 +723,25 @@ function CountryList({
   }, []);
   useEffect(() => {
     let active = true;
+    let redirecting = false;
     api
       .countries({
-        offset,
-        limit: 25,
+        page,
+        pageSize,
         sort_by: sort.column,
         sort_order: sort.direction,
       })
       .then((page) => {
         if (active) {
+          if (page.pagination.page > Math.max(page.pagination.totalPages, 1)) {
+            redirecting = true;
+            setLoading(true);
+            setRows([]);
+            setPage(Math.max(page.pagination.totalPages, 1));
+            return;
+          }
           setRows(page.items);
-          setHasNext(page.hasNext);
+          setPagination(page.pagination);
         }
       })
       .catch((cause: unknown) => {
@@ -686,12 +751,12 @@ function CountryList({
           );
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && !redirecting) setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [offset, sort.column, sort.direction, refresh]);
+  }, [page, pageSize, sort.column, sort.direction, refresh]);
   const updateSort = (column: string) => {
     setLoading(true);
     setError("");
@@ -700,7 +765,7 @@ function CountryList({
       direction:
         sort.column === column && sort.direction === "asc" ? "desc" : "asc",
     });
-    setOffset(0);
+    setPage(1);
   };
   const remove = async (country: Country) => {
     if (
@@ -710,8 +775,7 @@ function CountryList({
     try {
       await api.deleteCountry(country.code);
       notify("success", "Country deleted.");
-      if (rows.length === 1 && offset > 0) setOffset((value) => value - 25);
-      else reload();
+      reload();
     } catch (cause) {
       notify(
         "error",
@@ -741,12 +805,23 @@ function CountryList({
             <ErrorBox message={error} retry={reload} />
           ) : rows.length === 0 ? (
             <Empty
-              title="No countries yet"
-              text="Add a country to make it available on security forms."
+              title={
+                page > 1 ? "No countries on this page" : "No countries yet"
+              }
+              text={
+                page > 1
+                  ? "Go to the previous page to see countries."
+                  : "Add a country to make it available on security forms."
+              }
               action={
-                <Link to="/countries/new" className="button-link primary-link">
-                  Add your first country
-                </Link>
+                page === 1 ? (
+                  <Link
+                    to="/countries/new"
+                    className="button-link primary-link"
+                  >
+                    Add your first country
+                  </Link>
+                ) : undefined
               }
             />
           ) : (
@@ -799,22 +874,32 @@ function CountryList({
                   </tbody>
                 </table>
               </div>
-              <Pagination
-                offset={offset}
-                limit={25}
-                hasNext={hasNext}
-                totalOnPage={rows.length}
-                change={(value) => {
-                  setLoading(true);
-                  setError("");
-                  setOffset(value);
-                }}
-              />
             </>
+          )}
+          {!loading && !error && (
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              totalItems={pagination.totalItems}
+              totalPages={pagination.totalPages}
+              hasPreviousPage={pagination.hasPreviousPage}
+              hasNextPage={pagination.hasNextPage}
+              onPageChange={(value) => {
+                setLoading(true);
+                setError("");
+                setPage(value);
+              }}
+              onPageSizeChange={(value) => {
+                setStoredPageSize(value);
+                setLoading(true);
+                setError("");
+                setPage(1);
+              }}
+            />
           )}
         </CardContent>
       </Card>
-      <p className="table-note">Showing up to 25 countries per page</p>
+      <p className="table-note">Choose 10, 25 or 50 countries per page</p>
     </main>
   );
 }
@@ -844,7 +929,7 @@ function SecurityForm({
   useEffect(() => {
     let active = true;
     api
-      .countries({ offset: 0, limit: 500, sort_by: "name", sort_order: "asc" })
+      .countries({ page: 1, pageSize: 500, sort_by: "name", sort_order: "asc" })
       .then((page) => {
         if (active) {
           setCountries(page.items);

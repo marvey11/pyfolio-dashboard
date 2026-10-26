@@ -9,10 +9,18 @@ const ok = (body: unknown, status = 200) =>
   });
 
 describe("API client", () => {
-  it("constructs filtered, sorted, paginated security requests and infers next pages", async () => {
+  it("constructs filtered, sorted, paginated security requests and uses API metadata", async () => {
+    const pagination = {
+      page: 3,
+      pageSize: 2,
+      totalItems: 6,
+      totalPages: 3,
+      hasPreviousPage: true,
+      hasNextPage: false,
+    };
     const fetcher = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      ok(
-        Array.from({ length: 2 }, (_, id) => ({
+      ok({
+        items: Array.from({ length: 2 }, (_, id) => ({
           id,
           isin: "US0378331005",
           wkn: "865985",
@@ -20,11 +28,12 @@ describe("API client", () => {
           instrument_type: "stock",
           country_code: "DE",
         })),
-      ),
+        pagination,
+      }),
     );
     const page = await api.securities({
-      offset: 25,
-      limit: 2,
+      page: 3,
+      pageSize: 2,
       sort_by: "country",
       sort_order: "desc",
       instrument_type: "stock",
@@ -32,10 +41,10 @@ describe("API client", () => {
     });
     const firstUrl = fetcher.mock.calls.at(0)?.at(0);
     expect(firstUrl).toBe(
-      "/api/v1/pyfolio/securities?offset=25&limit=2&sort_by=country&sort_order=desc&instrument_type=stock&country_code=DE",
+      "/api/v1/pyfolio/securities?page=3&pageSize=2&sort_by=country&sort_order=desc&instrument_type=stock&country_code=DE",
     );
     expect(page.items).toHaveLength(2);
-    expect(page.hasNext).toBe(true);
+    expect(page.pagination).toEqual(pagination);
   });
   it("creates, updates and deletes resources using backend methods", async () => {
     const fetcher = vi
@@ -88,16 +97,16 @@ describe("API client", () => {
     );
     await expect(
       api.countries({
-        offset: 0,
-        limit: 5,
+        page: 1,
+        pageSize: 5,
         sort_by: "code",
         sort_order: "asc",
       }),
     ).rejects.toBeInstanceOf(ApiError);
     await expect(
       api.countries({
-        offset: 0,
-        limit: 5,
+        page: 1,
+        pageSize: 5,
         sort_by: "code",
         sort_order: "asc",
       }),

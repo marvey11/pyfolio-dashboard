@@ -24,9 +24,17 @@ export interface Security {
   country_code: string;
 }
 export type SortOrder = "asc" | "desc";
+export interface PaginationMetadata {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
 export interface Page<T> {
   items: T[];
-  hasNext: boolean;
+  pagination: PaginationMetadata;
 }
 export type SecurityInput = Omit<Security, "id">;
 
@@ -99,15 +107,14 @@ function query(values: Record<string, string | number | undefined>): string {
 
 export const api = {
   securities: async (options: {
-    offset: number;
-    limit: number;
+    page: number;
+    pageSize: number;
     sort_by: string;
     sort_order: SortOrder;
     instrument_type?: string;
     country_code?: string;
   }): Promise<Page<Security>> => {
-    const rows = await request<Security[]>(`/securities?${query(options)}`);
-    return { items: rows, hasNext: rows.length === options.limit };
+    return request<Page<Security>>(`/securities?${query(options)}`);
   },
   security: (id: number) => request<Security>(`/securities/${String(id)}`),
   createSecurity: (data: SecurityInput) =>
@@ -123,13 +130,12 @@ export const api = {
   deleteSecurity: (id: number) =>
     request<undefined>(`/securities/${String(id)}`, { method: "DELETE" }),
   countries: async (options: {
-    offset: number;
-    limit: number;
+    page: number;
+    pageSize: number;
     sort_by: string;
     sort_order: SortOrder;
   }): Promise<Page<Country>> => {
-    const rows = await request<Country[]>(`/countries?${query(options)}`);
-    return { items: rows, hasNext: rows.length === options.limit };
+    return request<Page<Country>>(`/countries?${query(options)}`);
   },
   country: (code: string) =>
     request<Country>(`/countries/${encodeURIComponent(code)}`),
