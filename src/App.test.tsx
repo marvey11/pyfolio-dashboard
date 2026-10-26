@@ -38,6 +38,44 @@ describe("Pyfolio screens", () => {
       );
     });
   });
+  it("keeps Previous available when a full page leads to an empty next page", async () => {
+    const securities = Array.from({ length: 25 }, (_, index) => ({
+      ...security,
+      id: index + 1,
+      name: `Security ${String(index + 1)}`,
+    }));
+    const fetcher = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (url.includes("/countries?")) return Promise.resolve(json([]));
+        if (url.includes("/securities?") && url.includes("offset=25"))
+          return Promise.resolve(json([]));
+        return Promise.resolve(json(securities));
+      });
+    render(<App />);
+
+    expect(await screen.findByText("Security 1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      await screen.findByText("No securities on this page"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(await screen.findByText("Security 1")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(fetcher).toHaveBeenCalledWith(
+        expect.stringContaining("offset=0&limit=25"),
+        expect.anything(),
+      );
+    });
+  });
   it("shows backend errors distinctly from an empty list", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(json({ detail: "Service unavailable" }, 503))
