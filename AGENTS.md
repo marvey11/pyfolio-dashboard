@@ -2,9 +2,11 @@
 
 ## Structure and responsibilities
 
-- `src/App.tsx` contains the application shell, route handling, reference-data tables and create/edit views.
+- `src/App.tsx` contains the application shell, route handling and notifications.
+- `src/SecurityList.tsx` and `src/CountryList.tsx` contain the security and country reference-data lists.
+- `src/Forms.tsx` contains security and country create/edit views; `src/shared.tsx` contains shared view components; `src/ui-utils.ts` contains page-size, sorting and navigation helpers.
 - `src/api.ts` owns optional API base URL handling, resource types, query construction and HTTP error handling. Keep network calls behind this module.
-- `src/App.css` and `src/index.css` define application layout and responsive styling; use `@marvey11/codescape-ui` for shared controls and `@marvey11/codescape-react-utils` for shared hooks.
+- `src/App.css` and `src/index.css` define application layout and responsive styling; use `@marvey11/codescape-ui` (currently 0.2.x) for shared controls and feedback, and `@marvey11/codescape-react-utils` for shared hooks.
 - `vite.config.ts` configures the frontend base path and Vitest. The container mount path is `/pyfolio/`; local Vite defaults to `/`.
 - `Dockerfile` builds the static app and serves it with Nginx; its SPA fallback handles refreshes on nested frontend routes.
 

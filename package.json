@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@marvey11/codescape-react-utils": "^0.1.0",
-    "@marvey11/codescape-ui": "^0.1.0",
+    "@marvey11/codescape-ui": "^0.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
