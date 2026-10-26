@@ -194,7 +194,23 @@ tbody tr:hover {
 }
 .pagination > div {
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+.pagination-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.pagination-size select {
+  min-height: 32px;
+  padding: 0 26px 0 8px;
+  border: 1px solid #dfe4eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #28364a;
+  font: inherit;
 }
 .loading {
   min-height: 250px;
@@ -401,6 +417,12 @@ tbody tr:hover {
   }
   .pagination {
     padding: 13px 14px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .pagination > div {
+    flex-wrap: wrap;
   }
   .pagination > span {
     font-size: 11px;

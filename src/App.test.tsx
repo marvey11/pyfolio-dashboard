@@ -8,10 +8,43 @@ afterEach(() => {
   localStorage.clear();
 });
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
+  new Response(
+    JSON.stringify(
+      Array.isArray(body)
+        ? {
+            items: body,
+            pagination: {
+              page: 1,
+              pageSize: 25,
+              totalItems: body.length,
+              totalPages: body.length === 0 ? 0 : 1,
+              hasPreviousPage: false,
+              hasNextPage: false,
+            },
+          }
+        : body,
+    ),
+    { status, headers: { "Content-Type": "application/json" } },
+  );
+const pageJson = (
+  items: unknown[],
+  page: number,
+  pageSize: number,
+  totalItems: number,
+) => {
+  const totalPages = Math.ceil(totalItems / pageSize);
+  return json({
+    items,
+    pagination: {
+      page,
+      pageSize,
+      totalItems,
+      totalPages,
+      hasPreviousPage: page > 1 && page <= totalPages,
+      hasNextPage: page < totalPages,
+    },
   });
+};
 const country = { code: "DE", name: "Germany" };
 const security = {
   id: 3,
@@ -38,7 +71,7 @@ describe("Pyfolio screens", () => {
       );
     });
   });
-  it("keeps Previous available when a full page leads to an empty next page", async () => {
+  it("uses pagination metadata instead of inferring a next page from a full page", async () => {
     const securities = Array.from({ length: 25 }, (_, index) => ({
       ...security,
       id: index + 1,
@@ -54,24 +87,193 @@ describe("Pyfolio screens", () => {
               ? input.href
               : input.url;
         if (url.includes("/countries?")) return Promise.resolve(json([]));
-        if (url.includes("/securities?") && url.includes("offset=25"))
+        if (url.includes("/securities?") && url.includes("page=2"))
           return Promise.resolve(json([]));
         return Promise.resolve(json(securities));
       });
     render(<App />);
 
     expect(await screen.findByText("Security 1")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(
-      await screen.findByText("No securities on this page"),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Previous" })).toBeEnabled();
-
-    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
-    expect(await screen.findByText("Security 1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
     await waitFor(() => {
       expect(fetcher).toHaveBeenCalledWith(
-        expect.stringContaining("offset=0&limit=25"),
+        expect.stringContaining("page=1&pageSize=25"),
+        expect.anything(),
+      );
+    });
+  });
+  it("persists page sizes separately for securities and countries", async () => {
+    const fetcher = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (url.includes("/countries?"))
+          return Promise.resolve(pageJson([country], 1, 500, 1));
+        return Promise.resolve(pageJson([security], 1, 25, 1));
+      });
+    render(<App />);
+
+    expect(await screen.findByText("Apple")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "Rows per page" }), {
+      target: { value: "10" },
+    });
+    await waitFor(() => {
+      expect(fetcher).toHaveBeenCalledWith(
+        expect.stringContaining("page=1&pageSize=10"),
+        expect.anything(),
+      );
+    });
+    expect(localStorage.getItem("pyfolio.securities.page-size")).toBe("10");
+
+    fireEvent.click(screen.getByRole("link", { name: /Countries/ }));
+    expect(await screen.findByText("Germany")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Rows per page" })).toHaveValue(
+      "25",
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "Rows per page" }), {
+      target: { value: "50" },
+    });
+    await waitFor(() => {
+      expect(fetcher).toHaveBeenCalledWith(
+        expect.stringContaining("page=1&pageSize=50"),
+        expect.anything(),
+      );
+    });
+    expect(localStorage.getItem("pyfolio.countries.page-size")).toBe("50");
+    expect(localStorage.getItem("pyfolio.securities.page-size")).toBe("10");
+  });
+  it("falls back to the default page size when stored data is invalid", async () => {
+    localStorage.setItem("pyfolio.securities.page-size", "15");
+    const fetcher = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (url.includes("/countries?"))
+          return Promise.resolve(pageJson([], 1, 500, 0));
+        return Promise.resolve(pageJson([security], 1, 25, 1));
+      });
+    render(<App />);
+
+    expect(await screen.findByText("Apple")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Rows per page" })).toHaveValue(
+      "25",
+    );
+    expect(fetcher).toHaveBeenCalledWith(
+      expect.stringContaining("page=1&pageSize=25"),
+      expect.anything(),
+    );
+  });
+  it("resets to page one when filters or sorting change", async () => {
+    const securities = Array.from({ length: 25 }, (_, index) => ({
+      ...security,
+      id: index + 1,
+      name: `Security ${String(index + 1)}`,
+    }));
+    const fetcher = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (url.includes("/countries?"))
+          return Promise.resolve(pageJson([country], 1, 500, 1));
+        const requestUrl = new URL(url, "http://localhost");
+        const requestPage = Number(requestUrl.searchParams.get("page"));
+        const filtered = requestUrl.searchParams.has("instrument_type");
+        const items =
+          requestPage === 1
+            ? securities
+            : [{ ...security, id: 26, name: "Security 26" }];
+        return Promise.resolve(
+          pageJson(items, requestPage, 25, filtered ? 26 : 26),
+        );
+      });
+    render(<App />);
+
+    expect(await screen.findByText("Security 1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Security 26")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Instrument type"), {
+      target: { value: "stock" },
+    });
+    await waitFor(() => {
+      expect(fetcher).toHaveBeenCalledWith(
+        expect.stringContaining("page=1&pageSize=25"),
+        expect.anything(),
+      );
+    });
+    expect(await screen.findByText("Security 1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Name/ }));
+    await waitFor(() => {
+      expect(fetcher).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "page=1&pageSize=25&sort_by=name&sort_order=asc&instrument_type=stock",
+        ),
+        expect.anything(),
+      );
+    });
+  });
+  it("moves to the last valid page after deleting the only row on a stale page", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    let securities = Array.from({ length: 26 }, (_, index) => ({
+      ...security,
+      id: index + 1,
+      name: `Security ${String(index + 1)}`,
+    }));
+    const fetcher = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input, init) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (url.includes("/countries?"))
+          return Promise.resolve(pageJson([], 1, 500, 0));
+        if (url.endsWith("/securities/26") && init?.method === "DELETE") {
+          securities = securities.filter((item) => item.id !== 26);
+          return Promise.resolve(new Response(null, { status: 204 }));
+        }
+        const requestUrl = new URL(url, "http://localhost");
+        const requestPage = Number(requestUrl.searchParams.get("page"));
+        const items = securities.slice(
+          (requestPage - 1) * 25,
+          requestPage * 25,
+        );
+        return Promise.resolve(
+          pageJson(items, requestPage, 25, securities.length),
+        );
+      });
+    render(<App />);
+
+    expect(await screen.findByText("Security 1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Security 26")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete Security 26" }));
+
+    expect(await screen.findByText("Security 1")).toBeInTheDocument();
+    expect(screen.queryByText("No securities on this page")).toBeNull();
+    await waitFor(() => {
+      expect(fetcher).toHaveBeenCalledWith(
+        expect.stringContaining("page=2&pageSize=25"),
+        expect.anything(),
+      );
+      expect(fetcher).toHaveBeenCalledWith(
+        expect.stringContaining("page=1&pageSize=25"),
         expect.anything(),
       );
     });
@@ -103,7 +305,7 @@ describe("Pyfolio screens", () => {
         if (
           url.includes("/countries?") &&
           method === "" &&
-          url.includes("limit=500")
+          url.includes("pageSize=500")
         ) {
           return Promise.resolve(json([]));
         }
@@ -150,7 +352,7 @@ describe("resource forms and destructive actions", () => {
             : input instanceof URL
               ? input.href
               : input.url;
-        if (url.includes("/countries?") && url.includes("limit=500"))
+        if (url.includes("/countries?") && url.includes("pageSize=500"))
           return Promise.resolve(json([country]));
         if (url.includes("/securities?") && init?.method === undefined)
           return Promise.resolve(json([]));
