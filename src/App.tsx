@@ -492,28 +492,47 @@ function SecurityList({
           ) : error ? (
             <ErrorBox message={error} retry={reload} />
           ) : rows.length === 0 ? (
-            <Empty
-              title={
-                type || countryCode
-                  ? "No matching securities"
-                  : "No securities yet"
-              }
-              text={
-                type || countryCode
-                  ? "Try changing or clearing your filters."
-                  : "Add a security to start building your reference list."
-              }
-              action={
-                !type && !countryCode ? (
-                  <Link
-                    to="/securities/new"
-                    className="button-link primary-link"
-                  >
-                    Add your first security
-                  </Link>
-                ) : undefined
-              }
-            />
+            <>
+              <Empty
+                title={
+                  offset > 0
+                    ? "No securities on this page"
+                    : type || countryCode
+                      ? "No matching securities"
+                      : "No securities yet"
+                }
+                text={
+                  offset > 0
+                    ? "Go to the previous page to see securities."
+                    : type || countryCode
+                      ? "Try changing or clearing your filters."
+                      : "Add a security to start building your reference list."
+                }
+                action={
+                  !type && !countryCode && offset === 0 ? (
+                    <Link
+                      to="/securities/new"
+                      className="button-link primary-link"
+                    >
+                      Add your first security
+                    </Link>
+                  ) : undefined
+                }
+              />
+              {offset > 0 && (
+                <Pagination
+                  offset={offset}
+                  limit={25}
+                  hasNext={hasNext}
+                  totalOnPage={rows.length}
+                  change={(value) => {
+                    setLoading(true);
+                    setError("");
+                    setOffset(value);
+                  }}
+                />
+              )}
+            </>
           ) : (
             <>
               <div className="table-wrap">
