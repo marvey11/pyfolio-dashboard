@@ -4,7 +4,7 @@ Pyfolio Dashboard is the React frontend for maintaining the security and country
 
 ## Workspace and architecture
 
-This repository contains the frontend. The API lives in the sibling `../pyfolio-backend` workspace, and the deployment gateway is maintained in a separate repository. `src/api.ts` is the sole HTTP client boundary; `src/App.tsx` contains the application shell, navigation, tables and resource forms. Shared controls and theme come from `@marvey11/codescape-ui`; shared browser storage comes from `@marvey11/codescape-react-utils`.
+This repository contains the frontend. The API lives in the sibling `../pyfolio-backend` workspace, and the deployment gateway is maintained in a separate repository. `src/api.ts` is the sole HTTP client boundary. `src/App.tsx` contains the application shell, route handling and notifications; `src/SecurityList.tsx` and `src/CountryList.tsx` contain the reference-data lists; and `src/Forms.tsx` contains the create/edit views. Reusable view components live in `src/shared.tsx`, while sorting, pagination-size and navigation helpers live in `src/ui-utils.ts`. Shared controls, feedback components and theme come from `@marvey11/codescape-ui` 0.2.x; shared browser storage comes from `@marvey11/codescape-react-utils`.
 
 Current scope includes securities and countries list, create, edit and delete operations. Lists use API pagination and sorting, with security filters for instrument type and country. The list endpoints return `{ items, pagination }`; the interface uses the API's exact counts and page navigation flags. Both lists offer 10, 25 and 50 rows per page and remember the last-used page size separately. The current page and filters are not persisted.
 

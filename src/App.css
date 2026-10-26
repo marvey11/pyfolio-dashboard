@@ -221,18 +221,9 @@ tbody tr:hover {
   color: #718096;
   font-size: 14px;
 }
-.spinner {
-  width: 17px;
-  height: 17px;
-  border: 2px solid #d9e2f0;
-  border-top-color: #557dc7;
-  border-radius: 100%;
-  animation: spin 0.75s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+.loading-skeleton {
+  width: 220px;
+  height: 16px;
 }
 .empty-state {
   min-height: 280px;
