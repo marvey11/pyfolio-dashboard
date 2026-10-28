@@ -109,9 +109,16 @@ describe("Forms", () => {
         "/api/v1/pyfolio/securities",
         expect.objectContaining({
           method: "POST",
-          body: expect.stringContaining('"country_code":"US"'),
         }),
       );
+      expect(
+        fetcher.mock.calls.some(
+          ([input, init]) =>
+            input === "/api/v1/pyfolio/securities" &&
+            typeof init?.body === "string" &&
+            init.body.includes('"country_code":"US"'),
+        ),
+      ).toBe(true);
     });
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Security created.",
