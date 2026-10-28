@@ -46,13 +46,6 @@ export function SecurityForm({
       .then((page) => {
         if (active) {
           setCountries(page.items);
-          setForm((current) => ({
-            ...current,
-            country_code:
-              current.country_code.length > 0
-                ? current.country_code
-                : (page.items.at(0)?.code ?? ""),
-          }));
         }
       })
       .catch((cause: unknown) => {
@@ -85,7 +78,20 @@ export function SecurityForm({
     };
   }, [edit, id]);
   const change = (key: keyof SecurityInput, value: string) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      if (key === "isin" && !edit && current.country_code.length === 0) {
+        const countryCode = value.slice(0, 2).toUpperCase();
+        const matchedCountry = countries.find(
+          (country) => country.code.toUpperCase() === countryCode,
+        );
+        return {
+          ...current,
+          isin: value,
+          country_code: matchedCountry?.code ?? "",
+        };
+      }
+      return { ...current, [key]: value };
+    });
   };
   const submit = async (event: SubmitEvent) => {
     event.preventDefault();

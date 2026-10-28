@@ -68,7 +68,9 @@ describe("Forms", () => {
               ? input.href
               : input.url;
         if (url.includes("/countries?") && url.includes("pageSize=500"))
-          return Promise.resolve(json([country]));
+          return Promise.resolve(
+            json([country, { code: "US", name: "United States" }]),
+          );
         if (url.includes("/securities?") && init?.method === undefined)
           return Promise.resolve(json([]));
         if (url.endsWith("/securities") && init?.method === "POST")
@@ -86,9 +88,15 @@ describe("Forms", () => {
         screen.getByRole("button", { name: "Create security" }),
       ).toBeEnabled(),
     );
+    expect(screen.getByLabelText("Country")).toHaveValue("");
+    fireEvent.change(screen.getByLabelText("ISIN"), {
+      target: { value: "GB0378331005" },
+    });
+    expect(screen.getByLabelText("Country")).toHaveValue("");
     fireEvent.change(screen.getByLabelText("ISIN"), {
       target: { value: security.isin },
     });
+    expect(screen.getByLabelText("Country")).toHaveValue("US");
     fireEvent.change(screen.getByLabelText("WKN"), {
       target: { value: security.wkn },
     });
@@ -99,8 +107,18 @@ describe("Forms", () => {
     await waitFor(() => {
       expect(fetcher).toHaveBeenCalledWith(
         "/api/v1/pyfolio/securities",
-        expect.objectContaining({ method: "POST" }),
+        expect.objectContaining({
+          method: "POST",
+        }),
       );
+      expect(
+        fetcher.mock.calls.some(
+          ([input, init]) =>
+            input === "/api/v1/pyfolio/securities" &&
+            typeof init?.body === "string" &&
+            init.body.includes('"country_code":"US"'),
+        ),
+      ).toBe(true);
     });
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Security created.",
