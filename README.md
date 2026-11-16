@@ -10,13 +10,13 @@ Current scope includes securities and countries list, create, edit and delete op
 
 ## Setup
 
-Use Node.js 24 and npm. The Codescape packages are hosted on GitHub Packages. Provide a `NODE_AUTH_TOKEN` with `read:packages` access to the relevant GitHub Packages scope, then install dependencies:
-
-For GitHub Actions, create a repository or environment secret named `NODE_AUTH_TOKEN` containing a PAT with `read:packages` access to the `marvey11` package scope. `GITHUB_TOKEN` does not have permission to install private organization packages and will fail with `403 Forbidden`.
+Use Node.js 24 and npm. The Codescape packages are hosted on GitHub Packages. For local installs, provide a `NODE_AUTH_TOKEN` with `read:packages` access to the relevant GitHub Packages scope, then install dependencies:
 
 ```sh
 npm ci
 ```
+
+GitHub Actions uses the built-in `GITHUB_TOKEN` automatically for workflow installs, so no additional workflow secret is required for the CI checks in this repository.
 
 By default, API requests use the same origin as the dashboard, with the public API base `/api/v1/pyfolio`. Leave `VITE_API_BASE_URL` unset for this behaviour. To use a different API host or prefix, set the optional variable in a local `.env` file:
 

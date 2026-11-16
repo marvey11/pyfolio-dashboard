@@ -14,9 +14,9 @@ The API is maintained in the sibling `../pyfolio-backend` repository. Inspect it
 
 ## Development and quality commands
 
-Use Node.js 24 and npm. Configure private GitHub Packages access with `NODE_AUTH_TOKEN` without committing a token, then run:
+Use Node.js 24 and npm. For local installs, configure private GitHub Packages access with `NODE_AUTH_TOKEN` without committing a token. GitHub Actions uses the built-in `GITHUB_TOKEN` automatically, so no extra workflow secret is required. Then run:
 
-- `npm ci` (requires a `NODE_AUTH_TOKEN` with GitHub Packages `read:packages` access)
+- `npm ci` (local environment only; use `NODE_AUTH_TOKEN` with GitHub Packages `read:packages` access)
 - `npm run dev` (`VITE_API_BASE_URL` is optional; requests use the dashboard origin when omitted)
 - `npm run typecheck`
 - `npm run lint`
