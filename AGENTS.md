@@ -23,6 +23,9 @@ Use Node.js 24 and npm. Configure private GitHub Packages access with `NODE_AUTH
 - `npm run format:check`
 - `npm run test:coverage`
 - `npm run build` (`VITE_API_BASE_URL` is optional; requests use the dashboard origin when omitted)
+- `npm run lint-staged` to run the same local staged-file checks manually
+
+Local Git hooks are enabled via Husky and lint-staged: pre-commit runs Prettier, ESLint and markdownlint against staged files, commit-msg runs commitlint, and pre-push runs `npm run test:run`.
 
 ## Conventions
 

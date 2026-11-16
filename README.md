@@ -36,6 +36,8 @@ npm run test:coverage
 npm run build
 ```
 
+Local git hooks run through Husky and lint-staged to enforce formatting, linting and markdown validation before each commit. Commit messages are checked with commitlint, and the test suite runs before push. The same rules are also enforced in GitHub Actions for pull requests.
+
 Tests mock HTTP requests and do not require a running backend.
 
 ## Container build and deployment
