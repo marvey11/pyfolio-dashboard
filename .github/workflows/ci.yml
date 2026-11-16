@@ -44,6 +44,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Lint Markdown files
+        run: npm run lint:markdown
+
       - name: Run tests with coverage
         run: npm run test:coverage
 
