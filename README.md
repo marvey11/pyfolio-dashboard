@@ -10,11 +10,13 @@ Current scope includes securities and countries list, create, edit and delete op
 
 ## Setup
 
-Use Node.js 24 and npm. The Codescape packages are hosted on GitHub Packages. Provide a `NODE_AUTH_TOKEN` with `read:packages` access, then install dependencies:
+Use Node.js 24 and npm. The Codescape packages are hosted on GitHub Packages. For local installs, provide a `NODE_AUTH_TOKEN` with `read:packages` access to the relevant GitHub Packages scope, then install dependencies:
 
 ```sh
 npm ci
 ```
+
+GitHub Actions uses the built-in `GITHUB_TOKEN` automatically for workflow installs, so no additional workflow secret is required for the CI checks in this repository.
 
 By default, API requests use the same origin as the dashboard, with the public API base `/api/v1/pyfolio`. Leave `VITE_API_BASE_URL` unset for this behaviour. To use a different API host or prefix, set the optional variable in a local `.env` file:
 
@@ -35,6 +37,8 @@ npm run lint
 npm run test:coverage
 npm run build
 ```
+
+Local git hooks run through Husky and lint-staged to enforce formatting, linting and markdown validation before each commit. Commit messages are checked with commitlint, and the test suite runs before push. The same rules are also enforced in GitHub Actions for pull requests.
 
 Tests mock HTTP requests and do not require a running backend.
 
