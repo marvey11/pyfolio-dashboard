@@ -10,7 +10,9 @@ Current scope includes securities and countries list, create, edit and delete op
 
 ## Setup
 
-Use Node.js 24 and npm. The Codescape packages are hosted on GitHub Packages. Provide a `NODE_AUTH_TOKEN` with `read:packages` access, then install dependencies:
+Use Node.js 24 and npm. The Codescape packages are hosted on GitHub Packages. Provide a `NODE_AUTH_TOKEN` with `read:packages` access to the relevant GitHub Packages scope, then install dependencies:
+
+For GitHub Actions, create a repository or environment secret named `NODE_AUTH_TOKEN` containing a PAT with `read:packages` access to the `marvey11` package scope. `GITHUB_TOKEN` does not have permission to install private organization packages and will fail with `403 Forbidden`.
 
 ```sh
 npm ci
