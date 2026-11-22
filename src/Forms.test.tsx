@@ -83,10 +83,11 @@ describe("Forms", () => {
     await screen.findByText("No securities yet");
     expect(document.querySelector(".cs-empty-state")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("link", { name: /Add security/ }));
-    await waitFor(() => { expect(
+    await waitFor(() => {
+      expect(
         screen.getByRole("button", { name: "Create security" }),
-      ).toBeEnabled(); },
-    );
+      ).toBeEnabled();
+    });
     expect(screen.getByLabelText("Country")).toHaveValue("");
     fireEvent.change(screen.getByLabelText("ISIN"), {
       target: { value: "GB0378331005" },
